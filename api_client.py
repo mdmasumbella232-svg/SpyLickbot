@@ -124,7 +124,7 @@ class APIClient:
         data = await self._request(url)
         games = [parse_live_game(g) for g in data.get("results", [])]
         total = data.get("pager", {}).get("total", 0)
-        logger.info(f"Fetched {len(games)} live games (total: {total})")
+        logger.debug(f"Fetched {len(games)} live games (total: {total})")
         return games
 
     async def fetch_finished_games(
