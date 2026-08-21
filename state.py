@@ -61,10 +61,10 @@ class MatchStateStore:
                 state.opening_over_odds = first_valid.over_odds
                 state.opening_under_odds = first_valid.under_odds
                 state.opening_line = first_valid.line
-            logger.info(
-                f"Opening odds for {match_id}: "
-                f"Over {first.line} @ {first.over_odds}, Under @ {first.under_odds}"
-            )
+                logger.info(
+                    f"Opening odds for {match_id}: "
+                    f"Over {first_valid.line} @ {first_valid.over_odds}, Under @ {first_valid.under_odds}"
+                )
         state.odds_history = market.odds
         import time as _t
         state.last_odds_fetch = _t.time()
