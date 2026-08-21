@@ -21,8 +21,10 @@ LIVE_POLL_INTERVAL = 30          # seconds between /live_games polls
 ODDS_POLL_INTERVAL = 60          # seconds per match between odds fetches
 ODDS_STAGGER_BASE = 60          # divided by N live matches for round-robin
 MAX_CONCURRENT_MATCHES_BEFORE_SLOW = 40  # above this, increase odds interval
-HTTP_TIMEOUT = 10                # seconds
-MAX_RETRIES = 3
+HTTP_TIMEOUT = 10                # seconds (for live_games)
+ODDS_HTTP_TIMEOUT = 20          # seconds (odds payloads are heavier)
+MAX_RETRIES = 2
+MATCH_FAILURE_COOLDOWN = 120  # skip match for 2 min after repeated failures
 COURTESY_DELAY = 0.5            # seconds between consecutive HTTP calls
 
 # ── Prediction Algorithm ─────────────────────────────────────────────────────
@@ -48,8 +50,9 @@ RATE_LIMIT_INITIAL_BACKOFF = 30  # seconds
 RATE_LIMIT_MAX_BACKOFF = 300     # seconds (5 min)
 SERVER_ERROR_RETRIES = 3
 SERVER_ERROR_BACKOFFS = [5, 15, 30]
-CONSECUTIVE_FAILURE_ALERT = 5    # alert after this many consecutive failures
+CONSECUTIVE_FAILURE_ALERT = 8    # alert after this many consecutive failures
 FAILURE_PAUSE_DURATION = 60      # pause all polling for this many seconds
+MATCH_MAX_FAILURES = 3          # failures before per-match cooldown
 
 # ── Telegram Limits ───────────────────────────────────────────────────────────
 TELEGRAM_MSG_QUEUE_SIZE = 20

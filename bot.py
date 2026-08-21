@@ -9,6 +9,8 @@ from config import (
     CONSECUTIVE_FAILURE_ALERT,
     FAILURE_PAUSE_DURATION,
     LIVE_POLL_INTERVAL,
+    MATCH_FAILURE_COOLDOWN,
+    MATCH_MAX_FAILURES,
     MAX_CONCURRENT_MATCHES_BEFORE_SLOW,
     ODDS_POLL_INTERVAL,
     ODDS_STAGGER_BASE,
@@ -46,6 +48,7 @@ class OUPredictionBot:
         self._live_task = None
         self._odds_task = None
         self._match_fetch_times: dict[str, float] = {}
+        self._match_failures: dict[str, int] = {}  # match_id -> consecutive failure count
 
     async def start(self):
         self._running = True
@@ -85,6 +88,7 @@ class OUPredictionBot:
                 stale = set(self._match_fetch_times.keys()) - live_ids
                 for mid in stale:
                     del self._match_fetch_times[mid]
+                    self._match_failures.pop(mid, None)
                 logger.debug(f"Tracking {self.state.count} matches, {len(games)} live")
             except Exception as e:
                 logger.error(f"Error in live poll loop: {e}")
@@ -113,11 +117,26 @@ class OUPredictionBot:
                     last = self._match_fetch_times.get(ms.match_id, 0)
                     if now - last < ODDS_POLL_INTERVAL:
                         continue
+                    # Skip matches in failure cooldown
+                    fails = self._match_failures.get(ms.match_id, 0)
+                    if fails >= MATCH_MAX_FAILURES:
+                        cooldown_end = self._match_fetch_times.get(ms.match_id, 0) + MATCH_FAILURE_COOLDOWN
+                        if now < cooldown_end:
+                            continue
+                        # Cooldown expired, reset
+                        self._match_failures[ms.match_id] = 0
                     try:
                         await self._fetch_and_analyze(ms.match_id)
                         self._match_fetch_times[ms.match_id] = now
+                        self._match_failures[ms.match_id] = 0  # reset on success
                     except Exception as e:
-                        logger.error(f"Error fetching odds for {ms.match_id}: {e}")
+                        self._match_failures[ms.match_id] = fails + 1
+                        if self._match_failures[ms.match_id] >= MATCH_MAX_FAILURES:
+                            logger.warning(
+                                f"Match {ms.match_id} in cooldown ({MATCH_FAILURE_COOLDOWN}s) after {MATCH_MAX_FAILURES} failures"
+                            )
+                        else:
+                            logger.debug(f"Odds fetch failed for {ms.match_id}: {e}")
                     await asyncio.sleep(stagger)
             except asyncio.CancelledError:
                 raise

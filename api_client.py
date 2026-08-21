@@ -9,6 +9,7 @@ from config import (
     COURTESY_DELAY,
     HTTP_TIMEOUT,
     MAX_RETRIES,
+    ODDS_HTTP_TIMEOUT,
     SERVER_ERROR_BACKOFFS,
 )
 from models import LiveGame, TotalMarket, parse_live_game, parse_total_market
@@ -55,21 +56,22 @@ class APIClient:
     def _reset_failures(self):
         self._consecutive_failures = 0
 
-    async def _request(self, url: str) -> dict | list:
+    async def _request(self, url: str, timeout: float | None = None) -> dict | list:
         """Make a GET request with retry logic."""
         client = await self._get_client()
         last_exc: Optional[Exception] = None
+        effective_timeout = timeout or HTTP_TIMEOUT
 
         for attempt in range(MAX_RETRIES + 1):
             try:
-                resp = await client.get(url)
+                resp = await client.get(url, timeout=effective_timeout)
                 content_type = resp.headers.get("content-type", "")
                 if "text/html" in content_type:
                     raise APIError(url, resp.status_code, "Got HTML instead of JSON")
 
                 if resp.status_code == 429:
                     self._consecutive_failures += 1
-                    logger.warning(
+                    logger.debug(
                         f"Rate limited on {url}, "
                         f"backing off {self._rate_limit_backoff:.0f}s"
                     )
@@ -100,7 +102,7 @@ class APIClient:
             except httpx.TimeoutException as e:
                 last_exc = e
                 self._consecutive_failures += 1
-                logger.warning(
+                logger.debug(
                     f"Timeout on {url} (attempt {attempt + 1}/{MAX_RETRIES + 1})"
                 )
                 if attempt < MAX_RETRIES:
@@ -160,7 +162,8 @@ class APIClient:
         )
         logger.debug(f"Fetching odds for event {event_id}")
         await asyncio.sleep(COURTESY_DELAY)
-        data = await self._request(url)
+        # Use longer timeout for odds (heavier payloads)
+        data = await self._request(url, timeout=ODDS_HTTP_TIMEOUT)
 
         if not isinstance(data, list):
             logger.warning(
