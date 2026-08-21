@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.env
+logs/
+backtest_results.csv
+*.log
+.venv/
+venv/
